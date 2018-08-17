@@ -1,5 +1,6 @@
 bags/
 build/
 .idea/
+src/.idea/
 
 *.bag
