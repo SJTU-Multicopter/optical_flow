@@ -10,7 +10,7 @@ if __name__ == '__main__':
 
     image_pub = rospy.Publisher("/opt_image", Image, queue_size=1)
 
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(2)
     cap.set(3, 640)
     cap.set(4, 480)
 
@@ -28,9 +28,9 @@ if __name__ == '__main__':
             image_pub.publish(img)
 
         # show a frame
-        # cv2.imshow("capture", frame)
-        # if cv2.waitKey(5) & 0xFF == ord('q'):
-        #     break
+        cv2.imshow("capture", frame)
+        if cv2.waitKey(5) & 0xFF == ord('q'):
+            break
 
         rate.sleep()
 
