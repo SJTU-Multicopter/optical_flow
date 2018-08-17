@@ -1,4 +1,5 @@
 bags/
 build/
+.idea/
 
 *.bag
