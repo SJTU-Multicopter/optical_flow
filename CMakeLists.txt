@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(optical_flow)
 
-
 find_package(catkin REQUIRED COMPONENTS  
  roscpp  
  rospy  
@@ -12,6 +11,7 @@ find_package(catkin REQUIRED COMPONENTS
  message_generation  
 ) 
 
+find_package(OpenCV REQUIRED)
 
 catkin_package(
         #  INCLUDE_DIRS include
@@ -28,8 +28,9 @@ ${catkin_INCLUDE_DIRS}
 )  
 
 
-#add_executable(optical_flow main.cpp)
-#target_link_libraries(optical_flow
+#add_executable(test1 src/test.cpp)
+#target_link_libraries(test1
 #        ${catkin_LIBRARIES}
+#        ${OpenCV_LIBS}
 #)
 
