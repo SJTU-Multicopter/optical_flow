@@ -6,12 +6,15 @@ import numpy as np
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import UInt8
 import matplotlib.pyplot as plt
 import os
 import threading
 import time
+from cv2 import aruco
 
-fake_mode_enable = 1
+fake_mode_enable = 0
+
 
 class MultiCamProcess:
     def __init__(self):
@@ -29,7 +32,8 @@ class MultiCamProcess:
 
         zed_depth_sub = rospy.Subscriber("/zed/depth/depth_registered", Image, self.depthCallback)
         zed_color_sub = rospy.Subscriber("/zed/rgb/image_rect_color", Image, self.colorCallback)
-        position_sub = rospy.Subscriber('/mavros/local_position/pose', PoseStamped, self.poseCallBack)
+        position_sub = rospy.Subscriber('/mavros/local_position/pose', PoseStamped, self.poseCallback)
+        mode_sub = rospy.Subscriber('/px4/camCmd', UInt8, self.modeCallback)
 
         self.result_pub = rospy.Publisher("/image_result", PoseStamped)
 
@@ -59,12 +63,12 @@ class MultiCamProcess:
         r = rospy.Rate(20)  #hz
 
         fake_mode_counter = 0
-        if fake_mode_enable:
+        if fake_mode_enable == 1:
             self.mode = 1
 
         while not rospy.is_shutdown():
 
-            if fake_mode_enable:
+            if fake_mode_enable == 1:
                 fake_mode_counter += 1
                 if fake_mode_counter < 200:
                     self.mode = 1
@@ -103,6 +107,7 @@ class MultiCamProcess:
                         self.result.pose.orientation.z = 0  # tree
                         self.result.pose.orientation.w = 0  # qr
 
+                        self.result.header.stamp = rospy.Time.now()
                         self.result_pub.publish(self.result)  # publish
 
                     self.usb_cam0_required = 1
@@ -135,6 +140,7 @@ class MultiCamProcess:
                         self.result.pose.orientation.z = 0  # tree
                         self.result.pose.orientation.w = 0  # qr
 
+                        self.result.header.stamp = rospy.Time.now()
                         self.result_pub.publish(self.result)  # publish
 
                     self.zed_color_required = 1
@@ -158,11 +164,12 @@ class MultiCamProcess:
                         self.result.pose.position.y = -y
                         self.result.pose.position.z = 0
 
-                        self.result.pose.orientation.x = 0  # landing board
-                        self.result.pose.orientation.y = 1  # circle
+                        self.result.pose.orientation.x = 1  # landing board
+                        self.result.pose.orientation.y = 0  # circle
                         self.result.pose.orientation.z = 0  # tree
                         self.result.pose.orientation.w = 0  # qr
 
+                        self.result.header.stamp = rospy.Time.now()
                         self.result_pub.publish(self.result)  # publish
 
                     self.usb_cam1_required = 1
@@ -192,6 +199,7 @@ class MultiCamProcess:
                         self.result.pose.orientation.z = 0  # tree
                         self.result.pose.orientation.w = 0  # qr
 
+                        self.result.header.stamp = rospy.Time.now()
                         self.result_pub.publish(self.result)  # publish
 
                     self.zed_color_required = 1
@@ -225,6 +233,7 @@ class MultiCamProcess:
                         self.result.pose.orientation.z = 1  # tree
                         self.result.pose.orientation.w = 0  # qr
 
+                        self.result.header.stamp = rospy.Time.now()
                         self.result_pub.publish(self.result) #publish
 
 
@@ -244,6 +253,8 @@ class MultiCamProcess:
 
             r.sleep()
 
+    def modeCallback(self, msg):
+        self.mode = msg.data
 
     def usbCam0Read(self):
 
@@ -635,6 +646,39 @@ class MultiCamProcess:
             else:
                 print "not find a peak"
                 return None, None  #, None
+
+    def findQRCode(self, img):
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        aruco_dict = aruco.Dictionary_get(aruco.DICT_ARUCO_ORIGINAL)
+        parameters = aruco.DetectorParameters_create()
+        # Camera parameters
+        f_x, f_y, c_x, c_y = 700.457, 700.457, 645.038, 361.34
+        X_real, Y_real = 0.24, 0.202
+
+        # lists of ids and the corners beloning to each id
+        corners, ids, rejectedImgPoints = aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
+        # print(corners)
+        # print(ids)
+        max_area, max_id = 0, 0
+        center_x, center_y, width, height = 0, 0, 0, 0
+
+        # print(corners)
+        for i in range(len(corners)):
+            area = (corners[i][0][1][0] - corners[i][0][0][0]) * (corners[i][0][2][1] - corners[i][0][1][1])
+            if area > max_area:
+                max_id = ids[i]
+                center_x = (corners[i][0][1][0] + corners[i][0][0][0]) / 2
+                center_y = (corners[i][0][2][1] + corners[i][0][1][1]) / 2
+                width = (corners[i][0][1][0] - corners[i][0][0][0]) / 2
+                height = (corners[i][0][2][1] - corners[i][0][1][1]) / 2
+
+        Z = X_real / (width - c_x) * f_x
+        X_real = (center_x - c_x) / f_x * Z
+        Y_real = (center_y - c_y) / f_y * Z
+
+        gray = aruco.drawDetectedMarkers(gray, corners)
+        print(max_id)
+
 
 
 if __name__ == '__main__':
